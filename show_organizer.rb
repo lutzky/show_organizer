@@ -73,11 +73,15 @@ class ShowPathname < Pathname
 
 end
 
+def is_video_file p
+  p.file? and VideoExtensions.include?(p.extname.downcase)
+end
+
 def organize_library
   duplicate_test_hash = {}
 
   Paths[:library].find do |p|
-    if p.file? and VideoExtensions.include?(p.extname.downcase)
+    if is_video_file p
       sp = ShowPathname.new(p)
 
       if sp.basename.to_s != sp.formatted_filename
@@ -108,4 +112,32 @@ def organize_library
   end
 end
 
+def handle_inbox
+  Paths[:inbox].each_entry do |p|
+    if is_video_file Paths[:inbox] + p
+      sp = ShowPathname.new(Paths[:inbox] + p)
+      dest = Paths[:unwatched] + sp.formatted_filename
+
+      temp_lib_dest = Paths[:library] + sp.formatted_filename
+
+      if dest.exist?
+        raise Exception.new("Duplicate: #{sp} would overwrite #{dest}")
+      end
+
+      puts "#{sp} -> #{dest}"
+      sp.rename dest
+
+      # Temporarily link in Paths[:library] - run organize_library
+      # afterwards, as it already checks for duplicates there
+      File.link(dest.to_s, temp_lib_dest.to_s)
+    end
+  end
+end
+
+puts "Organizing library..."
 organize_library
+puts "Done."
+
+puts "Handling inbox files..."
+handle_inbox
+puts "Done."
