@@ -3,6 +3,7 @@
 require 'rubygems'
 require 'english/style'
 require 'pathname'
+require 'pp'
 
 Paths = {
   :library   => Pathname.new("/home/ohad/torrents/library"),
@@ -88,7 +89,21 @@ def organize_library
 
         puts "#{sp} -> #{dest}"
         sp.rename(dest)
+      else
+        dest = sp
       end
+
+      episode_identifier = [sp.show_name, sp.season, sp.episode]
+
+      duplicate_test_hash[episode_identifier] ||= []
+      duplicate_test_hash[episode_identifier] << dest
+    end
+  end
+
+  duplicate_test_hash.each do |k, v|
+    if v.length > 1
+      puts "These look like duplicates to me:"
+      pp v
     end
   end
 end
