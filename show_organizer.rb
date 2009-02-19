@@ -4,7 +4,13 @@ require 'rubygems'
 require 'english/style'
 require 'pathname'
 
-VideoExtensions = [ ".avi", ".mpg", ".xvid" ]
+Paths = {
+  :library   => Pathname.new("/home/ohad/torrents/library"),
+  :inbox     => Pathname.new("/home/ohad/torrents"),
+  :unwatched => Pathname.new("/home/ohad/torrents/unwatched"),
+}
+
+VideoExtensions = [ ".avi", ".mpg", ".xvid", ".mkv" ]
 
 class ShowPathname < Pathname
   def initialize path
@@ -66,9 +72,25 @@ class ShowPathname < Pathname
 
 end
 
-Pathname.new(".").find do |p|
-  if p.file? and VideoExtensions.include?(p.extname.downcase)
-    show_path = ShowPathname.new(p)
-    puts "#{p.basename.to_s} => " + show_path.formatted_filename
+def organize_library
+  duplicate_test_hash = {}
+
+  Paths[:library].find do |p|
+    if p.file? and VideoExtensions.include?(p.extname.downcase)
+      sp = ShowPathname.new(p)
+
+      if sp.basename.to_s != sp.formatted_filename
+        dest = Paths[:library] + sp.show_name + sp.formatted_filename
+
+        if dest.exist?
+          raise Exception.new("Duplicate: #{sp} would overwrite #{dest}")
+        end
+
+        puts "#{sp} -> #{dest}"
+        sp.rename(dest)
+      end
+    end
   end
 end
+
+organize_library
