@@ -83,15 +83,17 @@ def organize_library
   Paths[:library].find do |p|
     if is_video_file p
       sp = ShowPathname.new(p)
+      dest = Paths[:library] + sp.show_name + "Season #{sp.season}" + \
+        sp.formatted_filename
 
-      if sp.basename.to_s != sp.formatted_filename
-        dest = Paths[:library] + sp.show_name + sp.formatted_filename
-
+      if sp != dest
         if dest.exist?
           raise Exception.new("Duplicate: #{sp} would overwrite #{dest}")
         end
 
         puts "#{sp} -> #{dest}"
+
+        dest.dirname.mkpath
         sp.rename(dest)
       else
         dest = sp
