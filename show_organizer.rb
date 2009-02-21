@@ -11,6 +11,8 @@ Paths = {
   :unwatched => Pathname.new("/home/ohad/torrents/unwatched"),
 }
 
+KeepShows = [ "Chuck" ]
+
 VideoExtensions = [ ".avi", ".mpg", ".xvid", ".mkv" ]
 
 class ShowPathname < Pathname
@@ -134,6 +136,29 @@ def handle_inbox
       File.link(dest.to_s, temp_lib_dest.to_s)
     end
   end
+end
+
+def find_expiry_candidates
+  video_files = []
+  Paths[:library].find do |p|
+    if is_video_file p
+      video_files << ShowPathname.new(p)
+    end
+  end
+
+  video_files.reject! do |p|
+    p.stat.nlink > 1
+  end
+
+  video_files.reject! do |p|
+    KeepShows.include? p.show_name
+  end
+
+  video_files.sort! do |x,y|
+    x.mtime <=> y.mtime
+  end
+
+  pp video_files.collect { |x| [x,x.stat.mtime] }
 end
 
 puts "Organizing library..."
