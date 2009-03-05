@@ -5,12 +5,6 @@ require 'english/style'
 require 'pathname'
 require 'pp'
 
-Paths = {
-  :library   => Pathname.new("/home/ohad/torrents/library"),
-  :inbox     => Pathname.new("/home/ohad/torrents"),
-  :unwatched => Pathname.new("/home/ohad/torrents/unwatched"),
-}
-
 VideoExtensions = [ ".avi", ".mpg", ".xvid", ".mkv" ]
 
 class ShowPathname < Pathname
@@ -77,66 +71,114 @@ def is_video_file p
   p.file? and VideoExtensions.include?(p.extname.downcase)
 end
 
-def organize_library
-  duplicate_test_hash = {}
+class ShowOrganizer
+  def initialize(inbox_path, library_path = inbox_path, unwatched_path = nil,
+                 opts = {})
+    @paths = {
+      :inbox => Pathname.new(inbox_path),
+      :library => Pathname.new(library_path),
+      :unwatched => unwatched_path ? Pathname.new(unwatched_path) : nil,
+    }
 
-  Paths[:library].find do |p|
-    if is_video_file p
-      sp = ShowPathname.new(p)
-      dest = Paths[:library] + sp.show_name + "Season #{sp.season}" + \
-        sp.formatted_filename
+    @opts = opts
+  end
 
-      if sp != dest
-        if dest.exist?
-          raise Exception.new("Duplicate: #{sp} would overwrite #{dest}")
+  class WouldOverwriteException < Exception
+    attr_reader :src, :dest
+
+    def initialize(src, dest)
+      super("Duplicate: #{src} would overwrite #{dest}")
+      @src = src
+      @dest = dest
+    end
+  end
+
+  def organize_library
+    duplicate_test_hash = {}
+
+    @paths[:library].find do |p|
+      if is_video_file p
+        sp = ShowPathname.new(p)
+        dest = @paths[:library] + sp.show_name + "Season #{sp.season}" + \
+          sp.formatted_filename
+
+        safely_move(sp, dest)
+
+        episode_identifier = [sp.show_name, sp.season, sp.episode]
+
+        duplicate_test_hash[episode_identifier] ||= []
+        duplicate_test_hash[episode_identifier] << dest
+      end
+    end
+
+    duplicate_test_hash.each do |k, v|
+      if v.length > 1
+        puts "These look like duplicates to me:"
+        v.each do |p|
+          puts p.to_s
+        end
+      end
+    end
+  end
+
+  def safely_move(src, dest, opts = {})
+    if src == dest
+      return
+    end
+
+    if dest.exist?
+      print "WOULD OVERWRITE"
+      raise WouldOverwriteException.new(src, dest)
+    end
+
+    puts "#{opts[:link] ? "LN" : "MV"} #{src} -> #{dest}" if @opts[:verbose]
+
+    dest.dirname.mkpath
+
+    unless @opts[:pretend]
+      if opts[:link]
+        File.link(src.to_s, dest.to_s)
+      else
+        src.rename(dest)
+      end
+    end
+  end
+
+  def handle_inbox
+    counter = 0
+
+    @paths[:inbox].each_entry do |p|
+      if is_video_file @paths[:inbox] + p
+        counter += 1
+        sp = ShowPathname.new(@paths[:inbox] + p)
+
+        # This is a temporary destination - organize_library gets run
+        # afterwards to find the proper location within
+        temp_lib_dest = @paths[:library] + sp.formatted_filename
+        safely_move(sp, temp_lib_dest)
+
+        if @paths[:unwatched]
+          unwatched_dest = @paths[:unwatched] + sp.formatted_filename
+          safely_move(temp_lib_dest, unwatched_dest, :link => true)
         end
 
-        puts "#{sp} -> #{dest}"
-
-        dest.dirname.mkpath
-        sp.rename(dest)
-      else
-        dest = sp
+        puts "New episode for #{sp.show_name}: #{sp.formatted_filename}"
       end
-
-      episode_identifier = [sp.show_name, sp.season, sp.episode]
-
-      duplicate_test_hash[episode_identifier] ||= []
-      duplicate_test_hash[episode_identifier] << dest
     end
-  end
 
-  duplicate_test_hash.each do |k, v|
-    if v.length > 1
-      puts "These look like duplicates to me:"
-      pp v
-    end
+    puts "Organizing library..." if @opts[:verbose]
+    organize_library
+    puts "Done." if @opts[:verbose]
+
+    return counter
   end
 end
 
-def handle_inbox
-  Paths[:inbox].each_entry do |p|
-    if is_video_file Paths[:inbox] + p
-      sp = ShowPathname.new(Paths[:inbox] + p)
-      dest = Paths[:unwatched] + sp.formatted_filename
+show_organizer = ShowOrganizer.new("/home/ohad/torrents",
+                                   "/home/ohad/torrents/library",
+                                   "/home/ohad/torrents/unwatched",
+                                   :verbose => true)
 
-      temp_lib_dest = Paths[:library] + sp.formatted_filename
-
-      if dest.exist?
-        raise Exception.new("Duplicate: #{sp} would overwrite #{dest}")
-      end
-
-      puts "#{sp} -> #{dest}"
-      sp.rename dest
-
-      # Temporarily link in Paths[:library] - run organize_library
-      # afterwards, as it already checks for duplicates there
-      File.link(dest.to_s, temp_lib_dest.to_s)
-    end
-  end
-  organize_library
+if show_organizer.handle_inbox == 0
+  puts "No new episodes"
 end
-
-puts "Handling inbox files..."
-handle_inbox
-puts "Done."
