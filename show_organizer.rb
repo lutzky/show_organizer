@@ -4,6 +4,11 @@ require 'rubygems'
 require 'english/style'
 require 'pathname'
 require 'pp'
+require 'logger'
+
+$LOG = Logger.new(STDOUT)
+
+$LOG.level = Logger::WARN
 
 VideoExtensions = [ ".avi", ".mpg", ".xvid", ".mkv" ]
 
@@ -113,10 +118,9 @@ class ShowOrganizer
 
     duplicate_test_hash.each do |k, v|
       if v.length > 1
-        puts "These look like duplicates to me:"
-        v.each do |p|
-          puts p.to_s
-        end
+        $LOG.warn { "These look like duplicates to me: " + \
+          v.collect { |p| p.to_s }.join(", ")
+        }
       end
     end
   end
@@ -131,7 +135,7 @@ class ShowOrganizer
       raise WouldOverwriteException.new(src, dest)
     end
 
-    puts "#{opts[:link] ? "LN" : "MV"} #{src} -> #{dest}" if @opts[:verbose]
+    $LOG.info { "#{opts[:link] ? "LN" : "MV"} #{src} -> #{dest}" }
 
     dest.dirname.mkpath
 
@@ -166,18 +170,34 @@ class ShowOrganizer
       end
     end
 
-    puts "Organizing library..." if @opts[:verbose]
+    $LOG.info "Organizing library..."
     organize_library
-    puts "Done." if @opts[:verbose]
+    $LOG.info "Done organizing library."
 
     return counter
   end
 end
 
+require 'optparse'
+
+options = {}
+OptionParser.new do |opts|
+  opts.on("-v", "--verbose", "Run verbosely (use multiple times)") do |v|
+    $LOG.level -= 1
+  end
+  opts.on("-p", "--pretend", "Only pretend to perform operations")\
+    do |p|
+    options[:pretend] = p
+    if $LOG.level >= Logger::INFO
+      $LOG.level = Logger::INFO
+    end
+  end
+end.parse!
+
 show_organizer = ShowOrganizer.new("/home/ohad/torrents",
                                    "/home/ohad/torrents/library",
                                    "/home/ohad/torrents/unwatched",
-                                   :verbose => true)
+                                   options)
 
 if show_organizer.handle_inbox == 0
   puts "No new episodes"
