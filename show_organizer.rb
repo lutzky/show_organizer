@@ -134,11 +134,8 @@ def handle_inbox
       File.link(dest.to_s, temp_lib_dest.to_s)
     end
   end
+  organize_library
 end
-
-puts "Organizing library..."
-organize_library
-puts "Done."
 
 puts "Handling inbox files..."
 handle_inbox
