@@ -5,6 +5,7 @@ require 'english/style'
 require 'pathname'
 require 'pp'
 require 'logger'
+require 'yaml'
 
 $LOG = Logger.new(STDOUT)
 
@@ -194,9 +195,25 @@ OptionParser.new do |opts|
   end
 end.parse!
 
-show_organizer = ShowOrganizer.new("/home/ohad/torrents",
-                                   "/home/ohad/torrents/library",
-                                   "/home/ohad/torrents/unwatched",
+begin
+  dir_info = YAML::load_file(File.expand_path("~/.show_organizer.rc"))
+  raise Exception.new("No inbox defined") unless dir_info["inbox"]
+  raise Exception.new("No library defined") unless dir_info["library"]
+rescue Exception => e
+  puts <<-EOF
+Could not load ~/.show_organizer.rc, for the folowing reason:
+  #{e.message}
+The file format should look like this (use full paths only):
+inbox: /home/username/my_show_inbox
+library: /home/username/my_show_library
+unwatched: /home/username/place_for_unwatched_links # this is optional
+  EOF
+  exit 1
+end
+
+show_organizer = ShowOrganizer.new(dir_info["inbox"],
+                                   dir_info["library"],
+                                   dir_info["unwatched"],
                                    options)
 
 if show_organizer.handle_inbox == 0
