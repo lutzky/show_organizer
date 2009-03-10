@@ -108,12 +108,17 @@ class ShowOrganizer
         dest = @paths[:library] + sp.show_name + "Season #{sp.season}" + \
           sp.formatted_filename
 
-        safely_move(sp, dest)
+        if safely_move(sp, dest)
+          episode_identifier = [sp.show_name, sp.season, sp.episode]
 
-        episode_identifier = [sp.show_name, sp.season, sp.episode]
+          $LOG.debug {
+            "Adding #{sp.inspect} -> #{dest.inspect} to hash under " \
+            "#{episode_identifier.inspect}"
+          }
 
-        duplicate_test_hash[episode_identifier] ||= []
-        duplicate_test_hash[episode_identifier] << dest
+          duplicate_test_hash[episode_identifier] ||= []
+          duplicate_test_hash[episode_identifier] << dest
+        end
       end
     end
 
@@ -126,9 +131,12 @@ class ShowOrganizer
     end
   end
 
+  # Moves Pathname src to dest, or creates a hardlink if :link is specified
+  # in opts. Returns true if something was performed, or false if this was a
+  # nop. Throws an expection if dest already exists.
   def safely_move(src, dest, opts = {})
     if src == dest
-      return
+      return false
     end
 
     if dest.exist?
@@ -147,6 +155,8 @@ class ShowOrganizer
         src.rename(dest)
       end
     end
+
+    return true
   end
 
   def handle_inbox
