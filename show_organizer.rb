@@ -177,7 +177,7 @@ class ShowOrganizer
           safely_move(temp_lib_dest, unwatched_dest, :link => true)
         end
 
-        puts "New episode for #{sp.show_name}: #{sp.formatted_filename}"
+        $LOG.info "New episode for #{sp.show_name}: #{sp.formatted_filename}"
       end
     end
 
@@ -210,7 +210,7 @@ begin
   raise Exception.new("No inbox defined") unless dir_info["inbox"]
   raise Exception.new("No library defined") unless dir_info["library"]
 rescue Exception => e
-  puts <<-EOF
+  STDERR.puts <<-EOF
 Could not load ~/.show_organizer.rc, for the folowing reason:
   #{e.message}
 The file format should look like this (use full paths only):
@@ -227,5 +227,5 @@ show_organizer = ShowOrganizer.new(dir_info["inbox"],
                                    options)
 
 if show_organizer.handle_inbox == 0
-  puts "No new episodes"
+  $LOG.info "No new episodes"
 end
