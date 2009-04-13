@@ -139,6 +139,11 @@ class ShowOrganizer
       return false
     end
 
+    # TODO Case insensitivity. This is probably not how we want to do this.
+    if src.to_s.upcase == dest.to_s.upcase
+      return false
+    end
+
     if dest.exist?
       print "WOULD OVERWRITE"
       raise WouldOverwriteException.new(src, dest)
