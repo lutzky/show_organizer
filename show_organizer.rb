@@ -140,6 +140,17 @@ class ShowOrganizer
     end
 
     if dest.exist?
+      if File.identical?(src.to_s, dest.to_s)
+        # Hardlink has already been created. Be lazy about this.
+        if opts[:link]
+          $LOG.info { "LN #{src} -> #{dest} (link existed, NOP)" }
+        else
+          File.unlink(src.to_s)
+          $LOG.info { "MV #{src} -> #{dest} (link existed, just unlink)" }
+        end
+        return true
+      end
+
       print "WOULD OVERWRITE"
       raise WouldOverwriteException.new(src, dest)
     end
@@ -170,7 +181,7 @@ class ShowOrganizer
         # This is a temporary destination - organize_library gets run
         # afterwards to find the proper location within
         temp_lib_dest = @paths[:library] + sp.formatted_filename
-        safely_move(sp, temp_lib_dest)
+        safely_move(sp, temp_lib_dest, :link => @opts[:keep])
 
         if @paths[:unwatched]
           unwatched_dest = @paths[:unwatched] + sp.formatted_filename
@@ -202,6 +213,9 @@ OptionParser.new do |opts|
     if $LOG.level >= Logger::INFO
       $LOG.level = Logger::INFO
     end
+  end
+  opts.on("-k", "--keep", "Keep download for seeding (using hardlinks)") do |v|
+    options[:keep] = true
   end
 end.parse!
 
